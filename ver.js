@@ -5,6 +5,17 @@
 // 2020.09.05-20:20 [class CanvasLeyar] add:(_events - EventEmiter)
 // 2020.09.28-01:30 [class CanvasLeyar] use:(template)
 
+function codeFunction(code = '', useAPI = {}) {
+	let proxyUseAPI = new Proxy(useAPI, {
+		has: t => true,
+		get: (target, key) => key === Symbol.unscopables ? undefined:target[key]
+	});
+	
+	if(typeof code !== 'string') code = code.toString().replace(/function.+?\{/, '').replace(/\}$/, '');
+	return function() { eval(`with(proxyUseAPI) {${code}};`); };
+};
+
+
 'use strict';
 let random = (a, b) =>  Math.floor(Math.random()*(1+b-a)+a);
 let setPropertyNotEnumerable = (o, id, value, inv = false) => Object.defineProperty(o, id, { value, writable: !inv, enumerable: inv, configurable: !inv });
