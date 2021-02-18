@@ -2,17 +2,17 @@
 // 2020.07.17-12:10 [class CanvasLeyar]add: (pixelDensity)
 // 2020.08.31-15:30 [class Vector2] updata
 // 2020.09.04-19:30 [class CanvasLeyar] use:(slot), [class Vector2] add: static zero vec2
-// 2020.09.05-20:20 [class CanvasLeyar] add:(_events - EventEmiter)
+// 2020.09.05-20:20 [class CanvasLeyar] add:(_events - EventEmitter)
 // 2020.09.28-01:30 [class CanvasLeyar] use:(template)
 
-function codeFunction(code = '', useAPI = {}) {
+function codeFunction(code = '', useAPI = {}, file = 'code') {
 	let proxyUseAPI = new Proxy(useAPI, {
 		has: t => true,
 		get: (target, key) => key === Symbol.unscopables ? undefined:target[key]
 	});
 	
-	if(typeof code !== 'string') code = code.toString().replace(/function.+?\{/, '').replace(/\}$/, '');
-	return function() { eval(`with(proxyUseAPI) {${code}};`); };
+	if(typeof code !== 'string') code = code.toString().replace(/^function.+?\{(.*)\}$/s, '$1');
+	return function() { eval(`with(proxyUseAPI) {${code}}; //# sourceURL=${file}`); };
 };
 
 
@@ -20,66 +20,56 @@ function codeFunction(code = '', useAPI = {}) {
 let random = (a, b) =>  Math.floor(Math.random()*(1+b-a)+a);
 let setPropertyNotEnumerable = (o, id, value, inv = false) => Object.defineProperty(o, id, { value, writable: !inv, enumerable: inv, configurable: !inv });
 
-/* does not work
-function loopNum(a, ot, ido) {
-    if (ot<=a && a <= ido) return a;
-    return (ot>a? loopNum(a += (ido-ot), ot, ido) :a>ido? loopNum(a -= (ido-ot), ot, ido) :`Error: ${a}, (ot: ${ot} i do: ${ido})`);
-}; //*/
 
-
-class EventEmiter {
+class EventEmitter {
 	constructor() {
 		Object.defineProperty(this, '_events', {value: {}});
 	}
-	on(id, func) {
-		if(typeof func === 'function') {
-			if(this._events[id]) this._events[id].push(func);
+	on(type, listener) {
+		if(typeof listener === 'function') {
+			if(this._events[type]) this._events[type].push(listener);
 			else {
-				this._events[id] = [func];
-				Object.defineProperty(this._events[id], 'store', {value: {}});
-				this._events[id].store.self = this;
-				this._events[id].store.type = id;
+				this._events[type] = [listener];
+				Object.defineProperty(this._events[type], 'store', {value: {}});
+				this._events[type].store.target = this;
+				this._events[type].store.type = type;
 			};
-			return true;
+			return this;
 		};
-		return false;
+		return Error('Invalid event listener passed');
 	}
-	once(id, func) {
-		if(typeof func === 'function') func.isonce = true;
-		return this.on(id, func);
+	once(type, listener) {
+		if(typeof listener === 'function') listener.isonce = true;
+		return this.on(type, listener);
 	}
-	off(id, func) {
-		if(!this._events[id]) return false;
-		if(!func) delete this._events[id];
+	off(type, listener) {
+		if(!this._events[type]) return this;
+		if(!listener) delete this._events[type];
 		else {
-			let l = this._events[id].indexOf(func);
-			if(l !== -1) {
-				this._events[id].splice(l, 1);
-				return true;
-			};
-			return false;
+			let l = this._events[type].indexOf(listener);
+			if(~l) this._events[type].splice(l, 1);
 		};
+		return this;
 	}
-	extends(em) { return Object.assign(this._events, em._events); }
-	emit(id, ...arg) {
-		if(!this._events[id]) return false;
-		for(let i = 0; i < this._events[id].length; i++) {
-			this._events[id][i].apply(this._events[id].store, arg);
-			if(this._events[id][i].isonce) delete this._events[id].splice(i, 1)[0].isonce;
+	emit(type, ...args) {
+		if(!this._events[type]) return false;
+		for(let i = 0; i < this._events[type].length; i++) {
+			this._events[type][i].apply(this._events[type].store, args);
+			if(this._events[type][i].isonce) delete this._events[type].splice(i, 1)[0].isonce;
 		};
 		return true;
 	}
 	toString() {return `[object ${this[Symbol.toStringTag]}]`;}
-	[Symbol.toPrimitive](type) {return type === 'string'?'[object EventEmiter]':true;}
+	[Symbol.toPrimitive](type) {return type === 'string'?`[object ${this[Symbol.toStringTag]}]`:true;}
 }
-setPropertyNotEnumerable(EventEmiter.prototype, Symbol.toStringTag, 'EventEmiter');
+setPropertyNotEnumerable(EventEmitter.prototype, Symbol.toStringTag, 'EventEmitter');
 
 
 class Scene {
-	constructor(scene) {this.scene = new scene();}
-	init() {this.scene.init?.();}
-	updata(dt) {this.scene.updata?.(dt);}
-	exit() {this.scene.exit?.();}
+	constructor(scene) { this.scene = new scene(); }
+	init() { this.scene.init?.(); }
+	updata(dt) { this.scene.updata?.(dt); }
+	exit() { this.scene.exit?.(); }
 	
 	static active_scene = null;
 	static set(name) {
@@ -88,6 +78,7 @@ class Scene {
 		Scene.active_scene?.init();
 	}
 }
+setPropertyNotEnumerable(Scene.prototype, Symbol.toStringTag, 'Scene');
 
 
 class VectorN extends Array {
@@ -153,10 +144,10 @@ class VectorN extends Array {
 		};
 		return arr;
 	}
-	static operation(func, vecs) {
+	static operation(operation, vecs) {
 		let arr = vecs.length === 1 && 'number' === typeof vecs[0] ? vecs[0] : VectorN.parseArgs(vecs);
 		let ownArg = 'number' === typeof arr;
-		for(let i = 0; i < this.length && (ownArg || i < arr.length); i++) arr[i] !== null && func(ownArg ? arr : arr[i], i);
+		for(let i = 0; i < this.length && (ownArg || i < arr.length); i++) arr[i] !== null && operation(ownArg ? arr : arr[i], i);
 		return this;
 	}
 }
@@ -461,182 +452,111 @@ class CanvasEmitCamera {
 
 
 /*
-	canvas = [object HTMLCanvasElement]
 	globalCompositeOperation = source-over
 	
-	source-over
-	This is the
-	default setting and draws new shapes on top of the existing canvas content.
-	
-	source-in
-		The new shape is drawn only where both the new shape and the destination canvas overlap.Everything
-	else is made transparent.
-	
-	source-out
-	The new shape is drawn where it doesn 't overlap the existing canvas content.
-	
-	source-atop
-	The new shape is only drawn where it overlaps the existing canvas content.
-	
-	destination-over
-	New shapes are drawn behind the existing canvas content.
-	
-	destination-in
-		The existing canvas content is kept where both the new shape and existing canvas content overlap.Everything
-	else is made transparent.
-	
-	destination-out
-	The existing content is kept where it doesn 't overlap the new shape.
-	
-	destination-atop
-	The existing canvas is only kept where it overlaps the new shape.The new shape is drawn behind the canvas content.
-	
-	lighter
-	Where both shapes overlap the color is determined by adding color values.
-	
-	copy
-	Only the new shape is shown.
-	
-	xor
-	Shapes are made transparent where both overlap and drawn normal everywhere
-	else.
-	
-	multiply
-	The pixels are of the top layer are multiplied with the corresponding pixel of the bottom layer.A darker picture is the result.
-	
-	screen
-	The pixels are inverted, multiplied, and inverted again.A lighter picture is the result(opposite of multiply)
-	
-	overlay
-	A combination of multiply and screen.Dark parts on the base layer become darker, and light parts become lighter.
-	
-	darken
-	Retains the darkest pixels of both layers.
-	
-	lighten
-	Retains the lightest pixels of both layers.
-	
-	color-dodge
-	Divides the bottom layer by the inverted top layer.
-	
-	color-burn
-	Divides the inverted bottom layer by the top layer, and then inverts the result.
-	
-	hard-light
-	A combination of multiply and screen like overlay, but with top and bottom layer swapped.
-	
-	soft-light
-	A softer version of hard - light.Pure black or white does not result in pure black or white.
-	
-	difference
-	Subtracts the bottom layer from the top layer or the other way round to always get a positive value.
-	
-	exclusion
-	Like difference, but with lower contrast.
-	
-	hue
-	Preserves the luma and chroma of the bottom layer,
-		while adopting the hue of the top layer.
-	
-	saturation
-	Preserves the luma and hue of the bottom layer,
-		while adopting the chroma of the top layer.
-	
-	color
-	Preserves the luma of the bottom layer,
-		while adopting the hue and chroma of the top layer.
-	
-	luminosity
-	Preserves the hue and chroma of the bottom layer,
-		while adopting the luma of the top layer.
-	
-	
-	
 	source-over	//	источник-над
-	Это
-	по умолчанию и рисует новые фигуры поверх существующего содержимого холста.
+	This is the default setting and draws new shapes on top of the existing canvas content.
+	Это по умолчанию и рисует новые фигуры поверх существующего содержимого холста.
 	
 	source-in	//	источник-в
-	Новая фигура рисуется только там, где перекрываются как новая фигура, так и конечный холст.
-	остальное сделано прозрачным.
+	The new shape is drawn only where both the new shape and the destination canvas overlap.Everything else is made transparent.
+	Новая фигура рисуется только там, где перекрываются как новая фигура, так и конечный холст остальное сделано прозрачным.
 	
 	source-out	//	источник-аут
+	The new shape is drawn where it doesn 't overlap the existing canvas content.
 	Новая форма рисуется там, где она не перекрывает существующее содержимое холста.
-	
+		
 	source-atop	//	источник на вершине
+	The new shape is only drawn where it overlaps the existing canvas content.
 	Новая форма рисуется только там, где она перекрывает существующее содержимое холста.
 	
 	destination-over	//	назначения-более
+	New shapes are drawn behind the existing canvas content.
 	Новые формы нарисованы за существующим содержанием холста.
 	
 	destination-in	//	назначения в
-	Существующее содержимое холста сохраняется там, где пересекаются как новая форма, так и существующее содержимое холста.
-	остальное сделано прозрачным.
+	The existing canvas content is kept where both the new shape and existing canvas content overlap.Everything else is made transparent.
+	Существующее содержимое холста сохраняется там, где пересекаются как новая форма, так и существующее содержимое холста остальное сделано прозрачным.
 	
 	destination-out		//	места назначения из
+	The existing content is kept where it doesn 't overlap the new shape.
 	Существующий контент хранится там, где он не перекрывает новую форму.
 	
 	destination-atop	//	назначения, на вершине
+	The existing canvas is only kept where it overlaps the new shape.The new shape is drawn behind the canvas content.
 	Существующий холст сохраняется только там, где он перекрывает новую форму.Новая форма рисуется за содержимым холста.
 	
 	lighter	//	более легкий
+	Where both shapes overlap the color is determined by adding color values.
 	Где обе фигуры перекрываются, цвет определяется путем добавления значений цвета.
 	
 	copy	//	копия
+	Only the new shape is shown.
 	Только новая форма отображается.
 	
 	xor		//	исключающее
-	Фигуры сделаны прозрачными, где и перекрываются, и везде нарисованы нормально
-	остальное.
+	Shapes are made transparent where both overlap and drawn normal everywhere else.
+	Фигуры сделаны прозрачными, где и перекрываются, и везде нарисованы нормально остальное.
 	
 	multiply	//	умножить
+	The pixels are of the top layer are multiplied with the corresponding pixel of the bottom layer.A darker picture is the result.
 	Пиксели верхнего слоя умножаются на соответствующий пиксель нижнего слоя.В результате получается более темное изображение.
 	
 	screen	//	экран
+	The pixels are inverted, multiplied, and inverted again.A lighter picture is the result(opposite of multiply)
 	Пиксели инвертируются, умножаются и снова инвертируются.В результате получается более светлая картинка(противоположно умножению)
 	
 	overlay	//	наложение
+	A combination of multiply and screen.Dark parts on the base layer become darker, and light parts become lighter.
 	Комбинация умножения и экрана.Темные части на базовом слое становятся темнее, а светлые части становятся светлее.
 	
 	darken	//	Омрачать
+	Retains the darkest pixels of both layers.
 	Сохраняет самые темные пиксели обоих слоев.
 	
 	lighten	//	светлее
+	Retains the lightest pixels of both layers.
 	Сохраняет самые светлые пиксели обоих слоев.
 	
 	color-dodge	//	цвет-додж
+	Divides the bottom layer by the inverted top layer.
 	Делит нижний слой на перевернутый верхний слой.
-	деление 1 × ÷ 100% соотношение
+	
 	color-burn	//	цветной огонь
+	Divides the inverted bottom layer by the top layer, and then inverts the result.
 	Делит инвертированный нижний слой на верхний, а затем инвертирует результат.
-	// ?
+	
 	hard-light	//	жесткий свет
+	A combination of multiply and screen like overlay, but with top and bottom layer swapped.
 	Комбинация умножения и экрана, как наложение, но с заменой верхнего и нижнего слоя.
-	// ?
+	
 	soft-light	//	мягкий свет
+	A softer version of hard - light.Pure black or white does not result in pure black or white.
 	Более мягкая версия с жестким освещением.Чистый черный или белый не приводит к чистому черному или белому.
 	
 	difference	//	разница
+	Subtracts the bottom layer from the top layer or the other way round to always get a positive value.
 	Вычитает нижний слой из верхнего слоя или наоборот, чтобы всегда получать положительное значение.
 	
 	exclusion	//	исключение
+	Like difference, but with lower contrast.
 	Как разница(difference), но с более низким контрастом.
 	
 	hue	//	оттенок
-	Сохраняет яркость и цветность нижнего слоя,
-	принимая оттенок верхнего слоя.
+	Preserves the luma and chroma of the bottom layer, while adopting the hue of the top layer.
+	Сохраняет яркость и цветность нижнего слоя, принимая оттенок верхнего слоя.
 	
 	saturation	//	насыщение
-	Сохраняет яркость и оттенок нижнего слоя,
-	принимая цветность верхнего слоя.
+	Preserves the luma and hue of the bottom layer, while adopting the chroma of the top layer.
+	Сохраняет яркость и оттенок нижнего слоя, принимая цветность верхнего слоя.
 	
 	color	//	цвет
-	Сохраняет яркость нижнего слоя,
-	при принятии оттенка и цветности верхнего слоя.
+	Preserves the luma of the bottom layer, while adopting the hue and chroma of the top layer.
+	Сохраняет яркость нижнего слоя, при принятии оттенка и цветности верхнего слоя.
 	
 	luminosity	//	светимость
-	Сохраняет оттенок и цветность нижнего слоя,
-	принимая при этом яркость верхнего слоя.
+	Preserves the hue and chroma of the bottom layer, while adopting the luma of the top layer.
+	Сохраняет оттенок и цветность нижнего слоя, принимая при этом яркость верхнего слоя.
 	
 	
 	
@@ -657,7 +577,7 @@ class CanvasEmitCamera {
 	
 	drop-shadow()
 	Применяет эффект тени к рисунку.Тень - это размытая, смещенная версия альфа - маски рисунка, нарисованного конкретным цветом, составленная под рисунком.Эта функция принимает до пяти аргументов:
-		<offset-x>: См. <length>Возможные единицы измерения. Определяет горизонтальное расстояние тени.
+	<offset-x>: См. <length>Возможные единицы измерения. Определяет горизонтальное расстояние тени.
 	<offset-y>: См. <length>Возможные единицы измерения. Определяет вертикальное расстояние тени.
 	<blur-radius>: Чем больше это значение, тем больше размытие, поэтому тень становится больше и светлее. Отрицательные значения не допускаются.
 	<color>: Смотрите <color>значения для возможных ключевых слов и обозначений.
@@ -695,6 +615,8 @@ class CanvasEmitCamera {
 	textBaseline = alphabetic|top|hanging|middle|ideographic|bottom
 */
 }
+setPropertyNotEnumerable(CanvasEmitCamera.prototype, Symbol.toStringTag, 'CanvasEmitCamera');
+
 
 class CanvasLeyar extends HTMLElement {
 //	connectedCallback() {
@@ -704,7 +626,7 @@ class CanvasLeyar extends HTMLElement {
 		super();
 		Object.defineProperty(this, '_events', {value: {}});
 		
-		let root = this.attachShadow({mode: 'open'});
+		let root = this.attachShadow({ mode: 'open' });
 		let leyars = this.getAttribute('leyar')?.split(/\s+/).reverse()||['back', 'main'];
 		
 		this._pixelDensity = this.getAttribute('pixelDensity')||1;
@@ -727,6 +649,9 @@ class CanvasLeyar extends HTMLElement {
 		el += `<div class="slot" style="width:100%; height:100%; z-index:10; overflow: auto; grid-area:1/1/1/1; align-self:${this.getAttribute('align-slot')||'center'}; justify-self:${this.getAttribute('justify-slot')||'center'};"><slot></slot></div>`;
 		tmp.innerHTML = el;
 		root.append(tmp.content.cloneNode(true));
+		
+		tmp.remove();
+		tmp = null;
 		
 		for(let i of leyars) {
 			this.canvas[i] = root.getElementById(i);
@@ -802,7 +727,8 @@ class CanvasLeyar extends HTMLElement {
 		};
 	}
 }
-for(let i of ['on', 'once', 'off', 'extends', 'emit']) setPropertyNotEnumerable(CanvasLeyar.prototype, i, EventEmiter.prototype[i]);
+setPropertyNotEnumerable(CanvasLeyar.prototype, Symbol.toStringTag, 'CanvasLeyar');
+for(let i of ['on', 'once', 'off', 'emit']) setPropertyNotEnumerable(CanvasLeyar.prototype, i, EventEmitter.prototype[i]);
 customElements.define('canvas-leyar', CanvasLeyar);
 //======================================================================//
 

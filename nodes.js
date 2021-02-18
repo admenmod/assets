@@ -1,5 +1,5 @@
 'use strict';
-class BaseNode extends EventEmiter {
+class BaseNode extends EventEmitter {
 	constructor(p = {}) {
 		super();
 		this.type = 'BaseNode';
@@ -82,7 +82,7 @@ class Gostic {
 	}
 	get value() {return Math.round(this.pos.getDistance(this.yadro.pos)/(this.radius-this.yadro.radius)*10000)/10000;}
 	get angle() {return this._angle = this.value?this.pos.rotate(this.yadro.pos):this._angle;}
-	updata() {
+	updata(touch) {
 		if(!this.touch) this.touch = touch.touches.find(i => i.isPress() && this.pos.getDistance(i) < this.radius);
 		else if(this.touch) {
 			let l = this.pos.getDistance(this.touch);
@@ -157,7 +157,7 @@ class CameraMoveObject {
 		this.minspeed = minspeed||0.02;
 		this.touch = null;
 	}
-	updata(v) {
+	updata(touch, v) {
 		if(!this.touch) {
 			if(Math.abs(this.cameraSpeed.x) < this.minspeed) this.cameraSpeed.x = 0;
 			if(Math.abs(this.cameraSpeed.y) < this.minspeed) this.cameraSpeed.y = 0;
