@@ -90,6 +90,86 @@ class Scene {
 }
 
 
+class VectorN {
+	constructor(...args) { this.pos = VectorN.parseArgs(args); }
+	get size() { return this.pos.length; }
+	set size(v) {
+		this.pos.length = v;
+		for(let i = 0; i < this.size; i++) if(this.pos[i] === undefined) this.pos[i] = 0;
+	}
+	get x()	 { return this.pos[0]; }
+	set x(v) { return this.pos[0] = v; }
+	get y()  { return this.pos[1]; }
+	set y(v) { return this.pos[1] = v; }
+	get z()  { return this.pos[2]; }
+	set z(v) { return this.pos[2] = v; }
+	get w()  { return this.pos[3]; }
+	set w(v) { return this.pos[3] = v; }
+	plus(...vecs) { return VectorN.operation.call(this, (n, i) => this.pos[i] += n||0, vecs); }
+	minus(...vecs) { return VectorN.operation.call(this, (n, i) => this.pos[i] -= n||0, vecs); }
+	inc(...vecs) { return VectorN.operation.call(this, (n, i) => this.pos[i] *= n||1, vecs); }
+	div(...vecs) { return VectorN.operation.call(this, (n, i) => this.pos[i] /= n||1, vecs); }
+	mod(...vecs) { return VectorN.operation.call(this, (n, i) => this.pos[i] %= n, vecs); }
+	set(...vecs) { return VectorN.operation.call(this, (n, i) => this.pos[i] = n, vecs); }
+	abs() {
+		for(let i = 0; i < this.size; i++) this.pos[i] = Math.abs(this.pos[i]);
+		return this;
+	}
+	inverse(a = 1) {
+		for(let i = 0; i < this.size; i++) this.pos[i] = a/this.pos[i];
+		return this;
+	}
+	invert() {
+		for(let i = 0; i < this.size; i++) this.pos[i] = -this.pos[i];
+		return this;
+	}
+	floor(i = 1) {
+		for(let i = 0; i < this.size; i++) this.pos[i] = Math.floor(this.pos[i]*i)/i;
+		return this;
+	}
+	buf() { return new VectorN(this.pos); }
+	map(f) {
+		for(let i = 0; i < this.size; i++) this.pos[i] = f(this.pos[i], i, this.pos) ?? this.pos[i];
+		return this;
+	}
+	normalize(a = 1) {
+		let l = this.length/a;
+		for(let i = 0; i < this.size; i++) this.pos[i] /= l;
+		return this;
+	}
+	get length() {
+		let x = 0;
+		for(let i = 0; i < this.size; i++) x += this.pos[i]**2;
+		return x;
+	}
+	set length(v) { return this.normalize(v); }
+	isSame(v) {
+		if(this.size !== v.size) return false;
+		for(let i = 0; i < this.size; i++) if(this.pos[i] !== v.pos[i]) return false;
+		return true;
+	}
+	
+	static parseArgs(args) {
+		let arr = [];
+		for(let i = 0; i < args.length; i++) {
+			if(args[i] instanceof VectorN) arr = arr.concat(args[i].pos);
+			else if(Array.isArray(args[i])) arr = arr.concat(args[i]);
+			else arr.push(args[i]);
+		};
+		return arr;
+	}
+	static operation(func, vecs) {
+		let pos = vecs.length === 1 && 'number' === typeof vecs[0] ? vecs[0] : VectorN.parseArgs(vecs);
+		let ownArg = 'number' === typeof pos;
+		for(let i = 0; i < this.size && (ownArg || i < pos.length); i++) pos[i] !== null && func(ownArg ? pos : pos[i], i);
+		return this;
+	}
+}
+let vecN = (...args) => new VectorN(...args);
+setPropertyNotEnumerable(VectorN.prototype, 'add', VectorN.prototype.plus);
+setPropertyNotEnumerable(VectorN.prototype, 'sub', VectorN.prototype.minus);
+
+
 class Vector2 {
 	constructor(x, y) {
 		this.x = +x||0;
