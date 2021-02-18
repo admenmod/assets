@@ -1,11 +1,99 @@
 'use strict';
-class TouchControl extends Vector2 {
+class TouchesControl {
 	constructor(el, some = e => false) {
+		this.active = [];
+		this.touches = [];
+		
+		el.addEventListener('touchstart', e => {
+			if(some(e)) return;
+			
+			if(e.touches.length > this.touches.length) this.touches.push(new TouchesControl.Touch(this.touches.length));
+			for(let i = 0; i < e.touches.length; i++) {
+				let id = e.touches[i].identifier;
+				if(this.active.includes(id)) continue;
+				
+				let tTouch = this.touches[id];
+				let eTouch = e.touches[i];
+				
+				tTouch.down = true;
+				
+				tTouch.fD = true;
+				tTouch.fP = true;
+				
+				tTouch.bx = tTouch.x = Math.floor(eTouch.clientX*10000)/10000;
+				tTouch.by = tTouch.y = Math.floor(eTouch.clientY*10000)/10000;
+				
+				this.active.push(id);
+			};
+		}, { passive: true });
+		el.addEventListener('touchend', e => {
+			if(some(e)) return;
+			
+			for(let k = 0; k < this.active.length; k++) {
+				let c = false;
+				for(let i = 0; i < e.touches.length; i++) {
+					let id = e.touches[i].identifier;
+					if(this.active[k] === id) { c = true; continue; };
+				};
+				if(c) continue;
+				
+				let tTouch = this.touches[this.active[k]];
+				
+				tTouch.fU = true;
+				tTouch.fD = false;
+				
+				tTouch.down = false;
+				tTouch.downTime = tTouch.downSet;
+				
+				this.active.splice(k, 1);
+			};
+		}, { passive: true });
+		el.addEventListener('touchmove', e => {
+			if(some(e)) return;
+			
+			for(let i = 0; i < e.touches.length; i++) {
+				let id = e.touches[i].identifier;
+				let tTouch = this.touches[id];
+				let eTouch = e.touches[i];
+				
+				let ev = vec2(eTouch.clientX, eTouch.clientY).floor(10000);
+				if(tTouch && !tTouch.isSame(ev)) {
+					tTouch.set(ev);
+					
+					tTouch.fM = true;
+					tTouch.down = false;
+					tTouch.downTime = tTouch.downSet;
+					
+					tTouch.sx = tTouch.x-tTouch.px;
+					tTouch.sy = tTouch.y-tTouch.py;
+					tTouch.px = tTouch.x;
+					tTouch.py = tTouch.y;
+				};
+			};
+		}, { passive: true });
+	}
+	isDown() {return this.touches.some(i => i.isDown());}
+	isPress() {return this.touches.some(i => i.isPress());}
+	isUp() {return this.touches.some(i => i.isUp());}
+	isMove() {return this.touches.some(i => i.isMove());}
+	isClick() {return this.touches.some(i => i.isClick());}
+	isDblClick() {return this.touches.some(i => i.isDblClick());}
+	isTimeDown() {return this.touches.some(i => i.isTimeDown());}
+	
+	isTouchEventBox(p, o = this.fC) {return this.touches.some(i => i.isTouchEventBox(p, o));}
+	updata() { for(let i = 0; i < this.touches.length; i++) this.touches[i].updata(); }
+	onNull() { for(let i = 0; i < this.touches.length; i++) this.touches[i].onNull(); }
+};
+
+TouchesControl.Touch = class extends Vector2 {
+	constructor(id) {
 		super();
-		this.x  = 0; this.y  = 0; // position
-		this.sx = 0; this.sy = 0; // speed
-		this.nx = 0; this.ny = 0; // fixNewPosition
-		this.bx = 0; this.by = 0; // fixStartPosition
+		this.id = id;
+		
+		this.x  = this.y  = 0; // position
+		this.sx = this.sy = 0; // speed
+		this.px = this.py = 0; // fixPrevPosition
+		this.bx = this.by = 0; // fixStartPosition
 		
 		this.fD = !1;
 		this.fP = !1;
@@ -18,51 +106,12 @@ class TouchControl extends Vector2 {
 		this.downTime = 40;
 		this.downSet = 40;
 		this.down = false;
-		
-		el.addEventListener('touchstart', e => {
-			if(some(e)) return;
-			
-			this.down = true;
-			
-			this.fD = true;
-			this.fP = true;
-			
-			// *нужно сделать мульти тачь
-			this.bx = this.x = Math.floor(e.touches[0].clientX*10000)/10000;
-			this.by = this.y = Math.floor(e.touches[0].clientY*10000)/10000;
-		});
-		el.addEventListener('touchend', e => {
-			if(some(e)) return;
-			
-			this.fU = true;
-			this.fD = false;
-			
-			this.down = false;
-			this.downTime = this.downSet;
-		});
-		el.addEventListener('touchmove', e => {
-			if(some(e)) return;
-			
-			this.fM = true;
-			this.x = Math.floor(e.touches[0].clientX*10000)/10000;
-			this.y = Math.floor(e.touches[0].clientY*10000)/10000;
-			
-			this.sx = this.x-this.nx;
-			this.sy = this.y-this.ny;
-			this.nx = this.x;
-			this.ny = this.y;
-			
-			this.down = false;
-			this.downTime = this.downSet;
-		});
-		el.addEventListener('click', e => !some(e) && (this.fC = true));
-		el.addEventListener('dblclick', e => !some(e) && (this.fdbC = true));
 	}
 	
-	get speed() {return Math.sqrt(Math.pow(this.sx, 2)+Math.pow(this.sy, 2));}
+	get speed() {return Math.sqrt(this.sx**2 + this.sy**2);}
 	get dx() {return this.x-this.bx;}
 	get dy() {return this.y-this.by;}
-	get beeline() {return Math.sqrt(Math.pow(this.dx, 2)+Math.pow(this.dy, 2));}
+	get beeline() {return Math.sqrt(this.dx**2 + this.dy**2);}
 	
 	isDown() {return this.fD;}
 	isPress() {return this.fP;}
@@ -72,7 +121,7 @@ class TouchControl extends Vector2 {
 	isDblClick() {return this.fdbC;}
 	isTimeDown() {return this.fTD;}
 	
-	isTouchEventBox(p, o=this.fC) {
+	isTouchEventBox(p, o = this.fC) {
 		return p.pos.x<=this.x&&this.x<=p.pos.x+p.size.x&&p.pos.y<=this.y&&this.y<=p.pos.y+p.size.y;
 	}
 	updata() {
@@ -83,12 +132,5 @@ class TouchControl extends Vector2 {
 			this.downTime = this.downSet;
 		};
 	}
-	onNull() {
-		if(this.fP) this.fP = false;
-		if(this.fU) this.fU = false;
-		if(this.fC) this.fC = false;
-		if(this.fM) this.fM = false;
-		if(this.fdbC) this.fdbC = false;
-		if(this.fTD) this.fTD = false;
-	}
-}
+	onNull() { this.fP = this.fU = this.fC = this.fM = this.fdbC = this.fTD = false; }
+};

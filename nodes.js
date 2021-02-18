@@ -62,12 +62,10 @@ class ImageNode extends BaseNode {
 	}
 }
 
-
 class Gostic {
 	constructor(p = {}) {
 		this.pos = p.pos||vec2();
 		this._angle = 0;
-		this.useF = false;
 		
 		this.radius = p.radius||70;
 		this.radiusYadro = p.radiusYadro||50;
@@ -79,21 +77,19 @@ class Gostic {
 			radiusYadro: 5,
 			colors: p.yadroColors||[0, '#223344', 1, '#112233']
 		};
+		
+		this.touch = null;
 	}
 	get value() {return Math.round(this.pos.getDistance(this.yadro.pos)/(this.radius-this.yadro.radius)*10000)/10000;}
 	get angle() {return this._angle = this.value?this.pos.rotate(this.yadro.pos):this._angle;}
 	updata() {
-		let l = this.pos.getDistance(touch);
-		if(touch.isPress()&&l<this.radius) this.useF = true;
-		if(this.useF) {
-			if(l<this.radius-this.yadro.radius) this.yadro.pos.set(touch);
-			else {
-				this.yadro.pos.set(this.pos);
-				this.yadro.pos.moveAngle(this.radius-this.yadro.radius, this.yadro.pos.rotate(touch));
-			};
+		if(!this.touch) this.touch = touch.touches.find(i => i.isPress() && this.pos.getDistance(i) < this.radius);
+		else if(this.touch) {
+			let l = this.pos.getDistance(this.touch);
+			this.yadro.pos.set(this.pos).moveAngle(Math.min(l, this.radius-this.yadro.radius), this.yadro.pos.rotate(this.touch));
+			if(this.touch.isUp()) this.touch = null;
 		};
-		if(touch.isUp()) this.useF = false;
-		if(!this.useF) this.yadro.pos.moveTime(this.pos, 3);
+		if(!this.touch) this.yadro.pos.moveTime(this.pos, 3);
 	}
 	draw(ctx) {
 		ctx.save();
@@ -154,19 +150,37 @@ class SaveParamState {
 
 
 class CameraMoveObject {
-	constructor(v) {
+	constructor(v, maxspeed, minspeed) {
 		this.fixpos = v.buf();
 		this.cameraSpeed = vec2();
+		this.maxspeed = maxspeed||10;
+		this.minspeed = minspeed||0.02;
+		this.touch = null;
 	}
 	updata(v) {
-		if(touch.isPress()) this.fixpos = v.buf();
-		if(touch.isDown()) v.set(this.fixpos.ot(touch.dx, touch.dy));
-		if(touch.isMove()) this.cameraSpeed.set(Math.abs(touch.sx)<=10 ? touch.sx :Math.sign(touch.sx)*10, Math.abs(touch.sy)<=10 ? touch.sy :Math.sign(touch.sy)*10);
-		else {
+		if(!this.touch) {
+			if(Math.abs(this.cameraSpeed.x) < this.minspeed) this.cameraSpeed.x = 0;
+			if(Math.abs(this.cameraSpeed.y) < this.minspeed) this.cameraSpeed.y = 0;
+			
 			this.cameraSpeed.moveTime(Vector2.ZERO, 10).floor(1000);
 			v.minus(this.cameraSpeed).floor(1000);
-			if(this.cameraSpeed.x < 0.02 && this.cameraSpeed.x > -0.02) this.cameraSpeed.x = 0;
-			if(this.cameraSpeed.y < 0.02 && this.cameraSpeed.y > -0.02) this.cameraSpeed.y = 0;
+			
+			for(let i = 0; i < touch.touches.length; i++) {
+				if(touch.touches[i].isPress()) {
+					this.touch = touch.touches[i];
+					this.fixpos = v.buf();
+					break;
+				};
+			};
+		} else {
+			if(this.touch.isDown()) v.set(this.fixpos.ot(this.touch.dx, this.touch.dy));
+			if(this.touch.isMove()) {
+				this.cameraSpeed.set(
+					Math.abs(this.touch.sx) <= this.maxspeed ? this.touch.sx :Math.sign(this.touch.sx)*this.maxspeed,
+					Math.abs(this.touch.sy) <= this.maxspeed ? this.touch.sy :Math.sign(this.touch.sy)*this.maxspeed
+				);
+			};
+			if(this.touch.isUp()) this.touch = null;
 		};
 	}
 };
