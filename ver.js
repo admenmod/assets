@@ -27,27 +27,36 @@ class EventEmitter {
 	}
 	on(type, listener) {
 		if(typeof listener === 'function') {
-			if(this._events[type]) this._events[type].push(listener);
-			else {
-				this._events[type] = [listener];
+			if(!this._events[type]) {
+				this._events[type] = [];
 				Object.defineProperty(this._events[type], 'store', {value: {}});
-				this._events[type].store.target = this;
+				Object.defineProperty(this._events[type], 'once', {value: []});
+				
 				this._events[type].store.type = type;
+				
+				this._events[type].store.self = this;
+				this._events[type].store.target = this;
+				this._events[type].store.emitter = this;
 			};
+			this._events[type].push(listener);
 			return this;
 		};
 		return Error('Invalid event listener passed');
 	}
 	once(type, listener) {
-		if(typeof listener === 'function') listener.isonce = true;
-		return this.on(type, listener);
+		let a = this.on(type, listener);
+		this._events[type].once.push(1);
+		return a;
 	}
 	off(type, listener) {
 		if(!this._events[type]) return this;
 		if(!listener) delete this._events[type];
 		else {
 			let l = this._events[type].indexOf(listener);
-			if(~l) this._events[type].splice(l, 1);
+			if(~l) {
+				this._events[type].splice(l, 1);
+				if(this._events[type].once[l]) this._events[type].once.splice(l, 1);
+			};
 		};
 		return this;
 	}
@@ -55,7 +64,10 @@ class EventEmitter {
 		if(!this._events[type]) return false;
 		for(let i = 0; i < this._events[type].length; i++) {
 			this._events[type][i].apply(this._events[type].store, args);
-			if(this._events[type][i].isonce) delete this._events[type].splice(i, 1)[0].isonce;
+			if(this._events[type].once[i]) {
+				this._events[type].splice(i, 1);
+				this._events[type].once.splice(i--, 1);
+			};
 		};
 		return true;
 	}
