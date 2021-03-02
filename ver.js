@@ -1,10 +1,3 @@
-// 2020.07.16-06:00 updata: (load resurse: use Promise.all)
-// 2020.07.17-12:10 [class CanvasLeyar]add: (pixelDensity)
-// 2020.08.31-15:30 [class Vector2] updata
-// 2020.09.04-19:30 [class CanvasLeyar] use:(slot), [class Vector2] add: static zero vec2
-// 2020.09.05-20:20 [class CanvasLeyar] add:(_events - EventEmitter)
-// 2020.09.28-01:30 [class CanvasLeyar] use:(template)
-
 function codeFunction(code = '', useAPI = {}, file = 'code') {
 	let proxyUseAPI = new Proxy(useAPI, {
 		has: t => true,
@@ -75,6 +68,37 @@ class EventEmitter {
 	[Symbol.toPrimitive](type) {return type === 'string'?`[object ${this[Symbol.toStringTag]}]`:true;}
 }
 setPropertyNotEnumerable(EventEmitter.prototype, Symbol.toStringTag, 'EventEmitter');
+
+
+class Child extends EventEmitter {
+	constructor() {
+		super();
+		this._parent = null;
+		this._children = [];
+	}
+	appendChild(child) {
+		if(child._parent) child._parent.removeChild(child);
+		child._parent = this;
+		this._children.push(child);
+	}
+	removeChild(child) {
+		if(child instanceof Child) {
+			let l = this._children.indexOf(child);
+			if(~l) this._children.splice(l, 1)[0]._parent = null;
+		};
+	}
+	getChildren() { return [...this._children]; };
+	getChainParent() {
+		let arr = [];
+		let pr = this._parent;
+		for(let i = 0; pr && i < 100; i++) {
+			arr.push(pr);
+			pr = pr._parent;
+		};
+		return arr;
+	}
+};
+setPropertyNotEnumerable(Child.prototype, Symbol.toStringTag, 'Child');
 
 
 class Scene {

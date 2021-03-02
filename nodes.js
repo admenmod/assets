@@ -1,5 +1,5 @@
 'use strict';
-class BaseNode extends EventEmitter {
+class BaseNode extends Child {
 	constructor(p = {}) {
 		super();
 		this.type = 'BaseNode';
@@ -9,21 +9,34 @@ class BaseNode extends EventEmitter {
 		this.scale = p.scale||vec2(1, 1);
 		this.alpha = p.alpha!==undefined?p.alpha:1;
 	}
+	get globalPos() {
+		let pos = this.pos.buf();
+		let tt = this.getChainParent();
+		for(let i = 0; i < tt.length; i++) pos.plus(tt[i].pos);
+		return pos;
+	}
+	get globalScale() {
+		let scale = this.scale.buf();
+		let tt = this.getChainParent();
+		for(let i = 0; i < tt.length; i++) scale.inc(tt[i].scale);
+		return scale;
+	}
+	
 	setPos(v) {return this.pos.set(v).buf();}
-	setPosC(v) {return this.pos.set(v.ot(this.size.buf().inc(this.scale).div(2))).buf();}
+	setPosC(v) {return this.pos.set(v.ot(this.size.buf().inc(this.globalScale).div(2))).buf();}
 	getPos() {return this.pos.buf();}
-	getPosC() {return this.pos.buf(this.size.buf().inc(this.scale).div(2));}
+	getPosC() {return this.pos.buf(this.size.buf().inc(this.globalScale).div(2));}
 	
 	move(x, y) {return this.pos.move(x, y);}
 	moveAngle(mv, a) {return this.pos.moveAngle(mv, a);}
 	moveTo(v, mv) {return this.pos.moveTo(v, mv);}
-	moveToC(v, mv) {return this.pos.moveTo(v.ot(this.size.buf().inc(this.scale).div(2)), mv);}
+	moveToC(v, mv) {return this.pos.moveTo(v.ot(this.size.buf().inc(this.globalScale).div(2)), mv);}
 	moveTime(v, t) {return this.pos.moveTime(v, t); }
-	moveTimeC(v, t) {return this.pos.moveTime(v.ot(this.size.buf().inc(this.scale).div(2)), t);}
+	moveTimeC(v, t) {return this.pos.moveTime(v.ot(this.size.buf().inc(this.globalScale).div(2)), t);}
 	rotate(v) {return this.pos.rotate(v);}
 	getDistance(v) {return this.pos.getDistance(v);}
 	
-	isStaticIntersect(b) {return this.pos.x+this.size.x*this.scale>b.pos.x && b.pos.x+b.size.x*b.scale>this.pos.x && this.pos.y+this.size.y*this.scale>b.pos.y && b.pos.y+b.size.y*b.scale>this.pos.y;}
+	isStaticIntersect(b) {return this.pos.x+this.size.x*this.globalScale.x>b.pos.x && b.pos.x+b.size.x*b.scale>this.pos.x && this.pos.y+this.size.y*this.globalScale.y>b.pos.y && b.pos.y+b.size.y*b.scale>this.pos.y;}
 }
 
 class ImageNode extends BaseNode {
@@ -48,16 +61,16 @@ class ImageNode extends BaseNode {
 		
 		if(p.posC) this.setPosC(p.posC);
 	}
-	draw(ctx, pos = this.pos) {
+	draw(ctx, pos = this.globalPos) {
 		ctx.save();
 	//	let pos = this.pos;//.buf().floor().plus(0.5);
 		if(this.angle !== 0) ctx.setTranslate(this.offsetAngle+this.angle, this.getPosC());
 		ctx.globalAlpha = this.alpha;
-		ctx.drawImage(this.image, pos.x, pos.y, this.size.x*this.scale.x+this.sizePlus.x, this.size.y*this.scale.y+this.sizePlus.y);
+		ctx.drawImage(this.image, pos.x, pos.y, this.size.x*this.globalScale.x+this.sizePlus.x, this.size.y*this.globalScale.y+this.sizePlus.y);
 		
 	//	ctx.strokeStyle = '#ffff00';
-	//	ctx.strokeRect(this.pos.x, this.pos.y, this.size.x*this.scale.x, this.size.y*this.scale.y);
-	//	ctx.strokeRect(this.pos.x-ctx.lineWidth/2, this.pos.y-ctx.lineWidth/2, this.size.x*this.scale.x+ctx.lineWidth, this.size.y*this.scale.y+ctx.lineWidth);
+	//	ctx.strokeRect(this.pos.x, this.pos.y, this.size.x*this.globalScale.x, this.size.y*this.globalScale.y);
+	//	ctx.strokeRect(this.pos.x-ctx.lineWidth/2, this.pos.y-ctx.lineWidth/2, this.size.x*this.globalScale.x+ctx.lineWidth, this.size.y*this.globalScale.y+ctx.lineWidth);
 		ctx.restore();
 	}
 }

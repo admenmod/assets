@@ -26,6 +26,7 @@ class TouchesControl {
 				this.active.push(id);
 			};
 		}, { passive: true });
+		
 		el.addEventListener('touchend', e => {
 			if(some(e)) return;
 			
@@ -48,6 +49,7 @@ class TouchesControl {
 				this.active.splice(k, 1);
 			};
 		}, { passive: true });
+		
 		el.addEventListener('touchmove', e => {
 			if(some(e)) return;
 			
@@ -72,6 +74,7 @@ class TouchesControl {
 			};
 		}, { passive: true });
 	}
+	
 	isDown() {return this.touches.some(i => i.isDown());}
 	isPress() {return this.touches.some(i => i.isPress());}
 	isUp() {return this.touches.some(i => i.isUp());}
