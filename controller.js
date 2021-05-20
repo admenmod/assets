@@ -1,6 +1,6 @@
 'use strict';
 class TouchesControl {
-	constructor(el, some = e => false) {
+	constructor(el, some = () => false) {
 		this.active = [];
 		this.touches = [];
 		
@@ -44,7 +44,7 @@ class TouchesControl {
 				tTouch.fD = false;
 				
 				tTouch.down = false;
-				tTouch.downTime = tTouch.downSet;
+				tTouch.downTime = 0;
 				
 				this.active.splice(k, 1);
 			};
@@ -59,12 +59,13 @@ class TouchesControl {
 				let eTouch = e.touches[i];
 				
 				let ev = vec2(eTouch.clientX, eTouch.clientY).floor(10000);
+				
 				if(tTouch && !tTouch.isSame(ev)) {
 					tTouch.set(ev);
 					
 					tTouch.fM = true;
 					tTouch.down = false;
-					tTouch.downTime = tTouch.downSet;
+					tTouch.downTime = 0;
 					
 					tTouch.sx = tTouch.x-tTouch.px;
 					tTouch.sy = tTouch.y-tTouch.py;
@@ -79,12 +80,10 @@ class TouchesControl {
 	isPress() {return this.touches.some(i => i.isPress());}
 	isUp() {return this.touches.some(i => i.isUp());}
 	isMove() {return this.touches.some(i => i.isMove());}
-	isClick() {return this.touches.some(i => i.isClick());}
-	isDblClick() {return this.touches.some(i => i.isDblClick());}
-	isTimeDown() {return this.touches.some(i => i.isTimeDown());}
+	isTimeDown(time) {return this.touches.some(i => i.isTimeDown(time));}
 	
-	isTouchEventBox(p, o = this.fC) {return this.touches.some(i => i.isTouchEventBox(p, o));}
-	updata() { for(let i = 0; i < this.touches.length; i++) this.touches[i].updata(); }
+	findTouch(cb = () => true) { return this.touches.find(t => t.isPress() && cb(t)); }
+	isStaticRectIntersect(pos, size) { return this.touches.some(i => i.isStaticRectIntersect(pos, size)); }
 	onNull() { for(let i = 0; i < this.touches.length; i++) this.touches[i].onNull(); }
 };
 
@@ -104,10 +103,8 @@ TouchesControl.Touch = class extends Vector2 {
 		this.fM = !1;
 		this.fC = !1;
 		this.fdbC = !1;
-		this.fTD = !1;
 		
-		this.downTime = 40;
-		this.downSet = 40;
+		this.downTime = 0;
 		this.down = false;
 	}
 	
@@ -120,20 +117,16 @@ TouchesControl.Touch = class extends Vector2 {
 	isPress() {return this.fP;}
 	isUp() {return this.fU;}
 	isMove() {return this.fM;}
-	isClick() {return this.fdbC?false:this.fC;}
-	isDblClick() {return this.fdbC;}
-	isTimeDown() {return this.fTD;}
-	
-	isTouchEventBox(p, o = this.fC) {
-		return p.pos.x<=this.x&&this.x<=p.pos.x+p.size.x&&p.pos.y<=this.y&&this.y<=p.pos.y+p.size.y;
-	}
-	updata() {
-		if(this.down && this.fD) this.downTime--;
-		if(this.down && this.downTime == 0) {
-			this.fTD = true;
+	isTimeDown(time = 30) {
+		if(this.down && this.downTime >= time) {
 			this.down = false;
-			this.downTime = this.downSet;
+			this.downTime = 0;
+			return true;
 		};
+		return false;
 	}
-	onNull() { this.fP = this.fU = this.fC = this.fM = this.fdbC = this.fTD = false; }
+	onNull() {
+		this.fP = this.fU = this.fC = this.fM = this.fdbC = false;
+		if(this.down) this.downTime++;
+	}
 };

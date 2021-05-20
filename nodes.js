@@ -96,7 +96,7 @@ class Gostic {
 	get value() {return Math.round(this.pos.getDistance(this.yadro.pos)/(this.radius-this.yadro.radius)*10000)/10000;}
 	get angle() {return this._angle = this.value?this.pos.rotate(this.yadro.pos):this._angle;}
 	updata(touch) {
-		if(!this.touch) this.touch = touch.touches.find(i => i.isPress() && this.pos.getDistance(i) < this.radius);
+		if(!this.touch) this.touch = touch.findTouch(t => this.pos.getDistance(t) < this.radius);
 		else if(this.touch) {
 			let l = this.pos.getDistance(this.touch);
 			this.yadro.pos.set(this.pos).moveAngle(Math.min(l, this.radius-this.yadro.radius), this.yadro.pos.rotate(this.touch));
@@ -178,13 +178,7 @@ class CameraMoveObject {
 			this.cameraSpeed.moveTime(Vector2.ZERO, 10).floor(1000);
 			v.minus(this.cameraSpeed).floor(1000);
 			
-			for(let i = 0; i < touch.touches.length; i++) {
-				if(touch.touches[i].isPress()) {
-					this.touch = touch.touches[i];
-					this.fixpos = v.buf();
-					break;
-				};
-			};
+			if(this.touch = touch.findTouch()) this.fixpos = v.buf();
 		} else {
 			if(this.touch.isDown()) v.set(this.fixpos.ot(this.touch.dx, this.touch.dy));
 			if(this.touch.isMove()) {

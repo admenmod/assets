@@ -282,8 +282,8 @@ class Vector2 {
 	}
 	isSame(v) {return this.x===v.x&&this.y===v.y;}
 	
-	isIntersect(a) {let d=0;for(let c=a.length-1, n=0; n<a.length; c=n++) a[n].y>this.y!=a[c].y>this.y&&this.x<(a[c].x-a[n].x)*(this.y-a[n].y)/(a[c].y-a[n].y)+a[n].x&&(d = !d);return d;}
-	isStaticRectIntersect(b) {return this.x>b.pos.x&&this.x<b.pos.x+b.size.x*b.scale.x&&this.y>b.pos.y&&this.y<b.pos.y+b.size.y*b.scale.y;}
+	isIntersect(a) {let d=0;for(let c=a.length-1, n=0; n<a.length; c=n++) a[n].y>this.y!=a[c].y>this.y&&this.x<(a[c].x-a[n].x)*(this.y-a[n].y)/(a[c].y-a[n].y)+a[n].x&&(d = !d); return d;}
+	isStaticRectIntersect(pos, size) { return this.x > pos.x && this.x < pos.x+size.x && this.y > pos.y && this.y < pos.y+size.y; }
 	
 	set angle(a) {
 		let cos = Math.cos(a), sin = Math.sin(a);
