@@ -66,7 +66,7 @@ class EventEmitter {
 	}
 	toString() {return `[object ${this[Symbol.toStringTag]}]`;}
 	[Symbol.toPrimitive](type) {return type === 'string'?`[object ${this[Symbol.toStringTag]}]`:true;}
-}
+};
 setPropertyNotEnumerable(EventEmitter.prototype, Symbol.toStringTag, 'EventEmitter');
 
 
@@ -113,8 +113,37 @@ class Scene {
 		Scene.active_scene = name;
 		Scene.active_scene?.init();
 	}
-}
+};
 setPropertyNotEnumerable(Scene.prototype, Symbol.toStringTag, 'Scene');
+
+
+class ResourceLoader extends EventEmitter {
+	constructor() {
+		super();
+		this.db = {};
+	}
+	loadImage(src, w, h) {
+		return new Promise(res => {
+			let el = new Image(w, h);
+			el.src = src;
+			el.onload = e => res(el);
+		});
+	}
+	loadAudio(src) { return new Promise(res => res(new Audio(src))); };
+	loadFiles(arr, db = this.db) {
+		let proms = [];
+		for(let i = 0; i < arr.length; i++) {
+			if(arr[i].type == 'image') proms.push(this.loadImage(arr[i].src || arr[i].path || arr[i].file, arr[i].w || arr[i].width, arr[i].h || arr[i].height));
+			else if(arr[i].type == 'audio') proms.push(this.loadAudio(arr[i].src || arr[i].path || arr[i].file));
+		};
+		
+		return Promise.all(proms).then(data => {
+			for(let i = 0; i < arr.length; i++) db[arr[i].title || arr[i].name] = data[i];
+			this.emit('load', db);
+		});
+	};
+};
+setPropertyNotEnumerable(ResourceLoader.prototype, Symbol.toStringTag, 'ResourceLoader');
 
 
 class VectorN extends Array {
@@ -186,7 +215,7 @@ class VectorN extends Array {
 		for(let i = 0; i < this.length && (ownArg || i < arr.length); i++) arr[i] !== null && operation(ownArg ? arr : arr[i], i);
 		return this;
 	}
-}
+};
 let vecN = (...args) => new VectorN(...args);
 setPropertyNotEnumerable(VectorN.prototype, 'add', VectorN.prototype.plus);
 setPropertyNotEnumerable(VectorN.prototype, 'sub', VectorN.prototype.minus);
@@ -306,7 +335,7 @@ class Vector2 {
 	
 	toString() {return `Vector2(${this.x}, ${this.y})`;}
 	[Symbol.toPrimitive](type) {return type === 'string'?`Vector2(${this.x}, ${this.y})`:true;}
-}
+};
 let vec2 = (x, y) => new Vector2(x, y);
 setPropertyNotEnumerable(Vector2.prototype, Symbol.toStringTag, 'Vector2');
 setPropertyNotEnumerable(Vector2.prototype, 'add', Vector2.prototype.plus);
@@ -650,11 +679,11 @@ class CanvasEmitCamera {
 	textAlign = start|left|right|center|end
 	textBaseline = alphabetic|top|hanging|middle|ideographic|bottom
 */
-}
+};
 setPropertyNotEnumerable(CanvasEmitCamera.prototype, Symbol.toStringTag, 'CanvasEmitCamera');
 
 
-class CanvasLeyar extends HTMLElement {
+class CanvasLayer extends HTMLElement {
 //	connectedCallback() {
 //	attributeChangedCallback(name, oldValue, newValue) {
 //	static get observedAttributes() { return ['c', 'l']; }
@@ -701,25 +730,6 @@ class CanvasLeyar extends HTMLElement {
 			this._updata();
 			this.emit('resize', e);
 		});
-		
-		this.db = {};
-		let loadImage = (src, w, h) => new Promise(res => {
-			let el = new Image(w, h);
-			el.src = src;
-			el.onload = e => res(el);
-		});
-		let loadAudio = src => new Promise(res => res(new Audio(src)));
-	//	this.onloadfiles = null;
-		this.loadFiles = function(arr, db = this.db) {
-			let proms = [];
-			for(let i = 0; i < arr.length; i++) {
-				if(arr[i].type == 'image') proms.push(loadImage(arr[i].src||arr[i].path||arr[i].file, arr[i].w||arr[i].width, arr[i].h||arr[i].height));
-				else if(arr[i].type == 'audio') proms.push(loadAudio(arr[i].src||arr[i].path||arr[i].file));
-			};
-			return Promise.all(proms).then(data => {
-				for(let i = 0; i < arr.length; i++) db[arr[i].title||arr[i].name] = data[i];
-			});
-		};
 	}
 	
 	set pixelDensity(v) {
@@ -762,10 +772,10 @@ class CanvasLeyar extends HTMLElement {
 			this.canvas[i].height = this._height;
 		};
 	}
-}
-setPropertyNotEnumerable(CanvasLeyar.prototype, Symbol.toStringTag, 'CanvasLeyar');
-for(let i of ['on', 'once', 'off', 'emit']) setPropertyNotEnumerable(CanvasLeyar.prototype, i, EventEmitter.prototype[i]);
-customElements.define('canvas-leyar', CanvasLeyar);
+};
+setPropertyNotEnumerable(CanvasLayer.prototype, Symbol.toStringTag, 'CanvasLayer');
+for(let i of ['on', 'once', 'off', 'emit']) setPropertyNotEnumerable(CanvasLayer.prototype, i, EventEmitter.prototype[i]);
+customElements.define('canvas-layer', CanvasLayer);
 //======================================================================//
 
 class Color {
@@ -892,4 +902,4 @@ class Color {
 		h = Math.round(h*60), s = Math.round(s*100), l = Math.round(l*100);
 		} return {h, s, l};
 	}
-}
+};
