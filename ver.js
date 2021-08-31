@@ -1,4 +1,4 @@
-function codeFunction(code = '', useAPI = {}, file = 'code') {
+function codeShell(code = '', useAPI = {}, file = 'code') {
 	let proxyUseAPI = new Proxy(useAPI, {
 		has: t => true,
 		get: (target, key) => key === Symbol.unscopables ? undefined:target[key]
@@ -11,7 +11,21 @@ function codeFunction(code = '', useAPI = {}, file = 'code') {
 
 'use strict';
 let random = (a, b) =>  Math.floor(Math.random()*(1+b-a)+a);
+let JSONcopy = data => JSON.parse(JSON.stringify(data));
 let setPropertyNotEnumerable = (o, id, value, inv = false) => Object.defineProperty(o, id, { value, writable: !inv, enumerable: inv, configurable: !inv });
+
+let generateImage = (w, h, cb) => new Promise((res, rej) => {
+	let cvs = document.createElement('canvas');
+	ctx = cvs.getContext('2d');
+	cvs.width = w; cvs.height = h;
+	
+	cb(ctx, vec2(w, h));
+	
+	let img = new Image(w, h);
+	img.src = cvs.toDataURL();
+	img.onload = e => res(img);
+	img.onerror = e => rej(e);
+});
 
 
 class EventEmitter {
@@ -123,10 +137,11 @@ class ResourceLoader extends EventEmitter {
 		this.db = {};
 	}
 	loadImage(src, w, h) {
-		return new Promise(res => {
+		return new Promise((res, rej) => {
 			let el = new Image(w, h);
 			el.src = src;
 			el.onload = e => res(el);
+			el.onerror = e => rej(e);
 		});
 	}
 	loadAudio(src) { return new Promise(res => res(new Audio(src))); };
@@ -138,7 +153,7 @@ class ResourceLoader extends EventEmitter {
 		};
 		
 		return Promise.all(proms).then(data => {
-			for(let i = 0; i < arr.length; i++) db[arr[i].title || arr[i].name] = data[i];
+			for(let i = 0; i < data.length; i++) db[arr[i].title || arr[i].name] = data[i];
 			this.emit('load', db);
 		});
 	};
