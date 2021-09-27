@@ -32,7 +32,7 @@ class EventEmitter {
 	constructor() {
 		Object.defineProperty(this, '_events', {value: {}});
 	}
-	on(type, listener) {
+	on(type, listener, once = 0) {
 		if(typeof listener === 'function') {
 			if(!this._events[type]) {
 				this._events[type] = [];
@@ -46,15 +46,12 @@ class EventEmitter {
 				this._events[type].store.emitter = this;
 			};
 			this._events[type].push(listener);
+			this._events[type].once.push(once);
 			return this;
 		};
 		return Error('Invalid event listener passed');
 	}
-	once(type, listener) {
-		let a = this.on(type, listener);
-		this._events[type].once.push(1);
-		return a;
-	}
+	once(type, listener) { return this.on(type, listener, 1); }
 	off(type, listener) {
 		if(!this._events[type]) return this;
 		if(!listener) delete this._events[type];
