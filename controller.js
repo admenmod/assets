@@ -1,13 +1,14 @@
 'use strict';
-class TouchesControl {
-	constructor(el, some = () => false) {
+class TouchesController {
+	constructor(el, filter = () => true) {
 		this.active = [];
 		this.touches = [];
 		
 		el.addEventListener('touchstart', e => {
-			if(some(e)) return;
+			if(!filter(e)) return;
 			
 			if(e.touches.length > this.touches.length) this.touches.push(new TouchesControl.Touch(this.touches.length));
+			
 			for(let i = 0; i < e.touches.length; i++) {
 				let id = e.touches[i].identifier;
 				if(this.active.includes(id)) continue;
@@ -20,21 +21,20 @@ class TouchesControl {
 				tTouch.fD = true;
 				tTouch.fP = true;
 				
-				tTouch.bx = tTouch.x = Math.floor(eTouch.clientX*10000)/10000;
-				tTouch.by = tTouch.y = Math.floor(eTouch.clientY*10000)/10000;
+				tTouch.bx = tTouch.x = eTouch.clientX;
+				tTouch.by = tTouch.y = eTouch.clientY;
 				
 				this.active.push(id);
 			};
 		}, { passive: true });
 		
 		el.addEventListener('touchend', e => {
-			if(some(e)) return;
+			if(!filter(e)) return;
 			
 			for(let k = 0; k < this.active.length; k++) {
 				let c = false;
 				for(let i = 0; i < e.touches.length; i++) {
-					let id = e.touches[i].identifier;
-					if(this.active[k] === id) { c = true; continue; };
+					if(this.active[k] === e.touches[i].identifier) c = true;
 				};
 				if(c) continue;
 				
@@ -51,17 +51,16 @@ class TouchesControl {
 		}, { passive: true });
 		
 		el.addEventListener('touchmove', e => {
-			if(some(e)) return;
+			if(!filter(e)) return;
 			
 			for(let i = 0; i < e.touches.length; i++) {
 				let id = e.touches[i].identifier;
 				let tTouch = this.touches[id];
 				let eTouch = e.touches[i];
 				
-				let ev = vec2(eTouch.clientX, eTouch.clientY).floor(10000);
-				
-				if(tTouch && !tTouch.isSame(ev)) {
-					tTouch.set(ev);
+				if(tTouch && tTouch.x !== eTouch.clientX && tTouch.y !== eTouch.clientY) {
+					tTouch.x = eTouch.clientX;
+					tTouch.y = eTouch.clientY;
 					
 					tTouch.fM = true;
 					tTouch.down = false;
@@ -76,20 +75,19 @@ class TouchesControl {
 		}, { passive: true });
 	}
 	
-	isDown() {return this.touches.some(i => i.isDown());}
-	isPress() {return this.touches.some(i => i.isPress());}
-	isUp() {return this.touches.some(i => i.isUp());}
-	isMove() {return this.touches.some(i => i.isMove());}
-	isTimeDown(time) {return this.touches.some(i => i.isTimeDown(time));}
+	isDown() { return this.touches.some(i => i.isDown()); }
+	isPress() { return this.touches.some(i => i.isPress()); }
+	isUp() { return this.touches.some(i => i.isUp()); }
+	isMove() { return this.touches.some(i => i.isMove()); }
+	isTimeDown(time) { return this.touches.some(i => i.isTimeDown(time)); }
 	
 	findTouch(cb = () => true) { return this.touches.find(t => t.isPress() && cb(t)); }
-	isStaticRectIntersect(pos, size) { return this.touches.some(i => i.isStaticRectIntersect(pos, size)); }
-	onNull() { for(let i = 0; i < this.touches.length; i++) this.touches[i].onNull(); }
+	isStaticRectIntersect(a) { return this.touches.some(i => i.isStaticRectIntersect(a)); }
+	nullify() { for(let i = 0; i < this.touches.length; i++) this.touches[i].nullify(); }
 };
 
-TouchesControl.Touch = class extends Vector2 {
+TouchesControl.Touch = class {
 	constructor(id) {
-		super();
 		this.id = id;
 		
 		this.x  = this.y  = 0; // position
@@ -108,15 +106,15 @@ TouchesControl.Touch = class extends Vector2 {
 		this.down = false;
 	}
 	
-	get speed() {return Math.sqrt(this.sx**2 + this.sy**2);}
-	get dx() {return this.x-this.bx;}
-	get dy() {return this.y-this.by;}
-	get beeline() {return Math.sqrt(this.dx**2 + this.dy**2);}
+	get speed() { return Math.sqrt(this.sx**2 + this.sy**2); }
+	get dx() { return this.x-this.bx; }
+	get dy() { return this.y-this.by; }
+	get beeline() { return Math.sqrt(this.dx**2 + this.dy**2); }
 	
-	isDown() {return this.fD;}
-	isPress() {return this.fP;}
-	isUp() {return this.fU;}
-	isMove() {return this.fM;}
+	isDown() { return this.fD; }
+	isPress() { return this.fP; }
+	isUp() { return this.fU; }
+	isMove() { return this.fM; }
 	isTimeDown(time = 30) {
 		if(this.down && this.downTime >= time) {
 			this.down = false;
@@ -125,7 +123,7 @@ TouchesControl.Touch = class extends Vector2 {
 		};
 		return false;
 	}
-	onNull() {
+	nullify() {
 		this.fP = this.fU = this.fC = this.fM = this.fdbC = false;
 		if(this.down) this.downTime++;
 	}
